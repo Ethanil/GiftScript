@@ -15,23 +15,23 @@
 // @grant       GM_xmlhttpRequest
 // ==/UserScript==
 
-(async function() {
-    'use strict';
+(async function () {
+  "use strict";
 
-    // Your code here...
-    if(document.URL === "REPLACEWITHYOURWEBSITEURL"){
-        GM_setValue("geschenkeCookies",document.cookie)
-        return;
-    }
-    const wishListButtonStack = document.getElementById("wishlistButtonStack")
-    if(!wishListButtonStack) {
-        console.log("no wishlist-box found!")
-        return
-    }
+  // Your code here...
+  if (document.URL === "REPLACEWITHYOURWEBSITEURL") {
+    GM_setValue("geschenkeCookies", document.cookie);
+    return;
+  }
+  const wishListButtonStack = document.getElementById("wishlistButtonStack");
+  if (!wishListButtonStack) {
+    console.log("no wishlist-box found!");
+    return;
+  }
 
-    const style = document.createElement('style');
-    document.head.appendChild(style)
-    style.innerHTML=`
+  const style = document.createElement("style");
+  document.head.appendChild(style);
+  style.innerHTML = `
             .myForm {
         z-index: 3000;
         top: 12.5%;
@@ -120,24 +120,26 @@
         background: pink;
         border-radius: 4px;
       }
-      `
+      `;
 
-    const openDialogButton = document.createElement("button")
-    openDialogButton.innerHTML="Auf der Geschenkseite erneut anmelden!"
-    openDialogButton.onclick = () => {window.open('REPLACEWITHYOURWEBSITEURL','_blank');
-                                     window.location.reload();}
-    openDialogButton.classList.add("addButton")
-    openDialogButton.type="button"
-    wishListButtonStack.append(openDialogButton)
-    if(!GM_listValues().includes("geschenkeCookies")){
-        openDialogButton.innerHTML="Auf der Geschenkseite anmelden!"
-        return;
-    }
+  const openDialogButton = document.createElement("button");
+  openDialogButton.innerHTML = "Auf der Geschenkseite erneut anmelden!";
+  openDialogButton.onclick = () => {
+    window.open("REPLACEWITHYOURWEBSITEURL", "_blank");
+    window.location.reload();
+  };
+  openDialogButton.classList.add("addButton");
+  openDialogButton.type = "button";
+  wishListButtonStack.append(openDialogButton);
+  if (!GM_listValues().includes("geschenkeCookies")) {
+    openDialogButton.innerHTML = "Auf der Geschenkseite anmelden!";
+    return;
+  }
 
-    let token = GM_getValue("geschenkeCookies").split('=')[1]
+  let token = GM_getValue("geschenkeCookies").split("=")[1];
 
-    const dialog = document.createElement("div")
-    dialog.innerHTML=`
+  const dialog = document.createElement("div");
+  dialog.innerHTML = `
             <form class="myForm">
       <label class="myLabel">Name des Geschenks</label>
       <input class="myInput" maxlength="60" id="giftName" />
@@ -169,89 +171,87 @@
       </button>
       <button type="button" class="myButton" id="closeDialog">schließen</button>
     </form>
-            `
-            dialog.style.visibility='hidden'
-    document.body.appendChild(dialog)
+            `;
+  dialog.style.visibility = "hidden";
+  document.body.appendChild(dialog);
 
-
-
-    const select = document.getElementById("giftLists");
-    openDialogButton.innerHTML="Als Geschenk zur Geschenkeliste hinzufügen"
-    openDialogButton.onclick = () => {
-        dialog.style.visibility='visible'
-    }
-    await GM_xmlhttpRequest({
-        method: "GET",
-        url: "REPLACEWITHYOURWEBSITEURL/api/giftgroups/",
-        headers: {
-            "Content-Type": "application/json",
-            "Authorization": "Bearer " + token,
-        },
-        onload: await function(response) {
-            if(response.status !==200) {
-                openDialogButton.innerHTML="Auf der Geschenkseite erneut anmelden!"
-                openDialogButton.onclick = () => {window.open('REPLACEWITHYOURWEBSITEURL','_blank');
-                window.location.reload();}
-                return;
-            }
-            const example_array = JSON.parse(response.response)
-            for(const index in example_array) {
-                select.options[select.options.length] = new Option(example_array[index].name, example_array[index].id);
-            }
-        }
-    });
-    const image = document.querySelector("#landingImage").src
-    const imageBlob = await fetch(image)
-    .then(response => response.blob())
-    .then(blob => blob)
-    const title = document.querySelector("#productTitle").textContent.trim().substring(0,60)
-    let price = Number(document.querySelector(".a-offscreen").textContent.split("€")[1])
-    if(!price || isNaN(price)) price = 0
-    const link = document.URL
-
-
-
-
-
-    const titleInput = document.getElementById("giftName")
-    titleInput.value=title
-
-    const descriptionInput = document.getElementById("giftDescription")
-
-    const priceInput = document.getElementById("giftPrice")
-    priceInput.value=price
-
-    const strengthInput = document.getElementById("giftStrength")
-
-    const button = document.getElementById("sendGift")
-    button.innerHTML="Als Geschenk hinzufügen"
-    button.style.margin="10px"
-    button.onclick = async () => {
-        if (isNaN(Number(priceInput.value))) return
-        const formData = new FormData();
-        formData.append("name",titleInput.value)
-        formData.append("description",descriptionInput.value)
-        formData.append("price",Number(priceInput.value))
-        formData.append("giftStrength",strengthInput.value)
-        formData.append("link",link)
-        formData.append("picture",imageBlob)
-        await fetch(
-            `REPLACEWITHYOURWEBSITEURL/api/gifts/${select.value}`,
-            {
-                method: "POST",
-                body: formData,
-                headers: {
-                    Authorization: "Bearer " + token,
-                },
-            },
+  const select = document.getElementById("giftLists");
+  openDialogButton.innerHTML = "Als Geschenk zur Geschenkeliste hinzufügen";
+  openDialogButton.onclick = () => {
+    dialog.style.visibility = "visible";
+  };
+  await GM_xmlhttpRequest({
+    method: "GET",
+    url: "REPLACEWITHYOURWEBSITEURL/api/giftgroups/",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: "Bearer " + token,
+    },
+    onload: await function (response) {
+      if (response.status !== 200) {
+        openDialogButton.innerHTML = "Auf der Geschenkseite erneut anmelden!";
+        openDialogButton.onclick = () => {
+          window.open("REPLACEWITHYOURWEBSITEURL", "_blank");
+          window.location.reload();
+        };
+        return;
+      }
+      const example_array = JSON.parse(response.response);
+      for (const index in example_array) {
+        select.options[select.options.length] = new Option(
+          example_array[index].name,
+          example_array[index].id
         );
-        dialog.style.display='none'
-    }
-    const innerCloseButton = document.getElementById("closeDialog")
-    innerCloseButton.onclick = () => {
-        dialog.style.visibility='hidden'
-    }
+      }
+    },
+  });
+  const image = document.querySelector("#landingImage").src;
+  const imageBlob = await fetch(image)
+    .then((response) => response.blob())
+    .then((blob) => blob);
+  const title = document
+    .querySelector("#productTitle")
+    .textContent.trim()
+    .substring(0, 60);
+  let price = Number(
+    document.querySelector(".a-offscreen").textContent.split("€")[1]
+  );
+  if (!price || isNaN(price)) price = 0;
+  const link = document.URL;
 
-}
+  const titleInput = document.getElementById("giftName");
+  titleInput.value = title;
 
-)();
+  const descriptionInput = document.getElementById("giftDescription");
+
+  const priceInput = document.getElementById("giftPrice");
+  priceInput.value = price;
+
+  const strengthInput = document.getElementById("giftStrength");
+
+  const button = document.getElementById("sendGift");
+  button.innerHTML = "Als Geschenk hinzufügen";
+  button.style.margin = "10px";
+  button.onclick = async () => {
+    if (isNaN(Number(priceInput.value))) return;
+    const formData = new FormData();
+    formData.append("name", titleInput.value);
+    formData.append("description", descriptionInput.value);
+    formData.append("price", Number(priceInput.value));
+    formData.append("giftStrength", strengthInput.value);
+    formData.append("link", link);
+    formData.append("picture", imageBlob);
+    await fetch(`REPLACEWITHYOURWEBSITEURL/api/gifts/${select.value}`, {
+      method: "POST",
+      body: formData,
+      headers: {
+        Authorization: "Bearer " + token,
+      },
+    });
+    dialog.style.display = "none";
+  };
+  const innerCloseButton = document.getElementById("closeDialog");
+  innerCloseButton.onclick = () => {
+    dialog.style.visibility = "hidden";
+  };
+})();
