@@ -8,6 +8,7 @@
 // @match REPLACEWITHYOURWEBSITEURL
 // @match *://*.amazon.de/*
 // @match *://*.amazon.com/*
+// @match *://*.idealo.de/*
 // @grant       GM_cookie
 // @grant       GM_setValue
 // @grant       GM_getValue
@@ -15,24 +16,47 @@
 // @grant       GM_xmlhttpRequest
 // ==/UserScript==
 
-(async function() {
-  'use strict';
-
-  // Your code here...
-  const giftSideURL = "REPLACEWITHYOURWEBSITEURL"
-  if(document.URL === giftSideURL){
-      GM_setValue("geschenkeCookies",document.cookie)
+(async function () {
+  "use strict";
+  const giftSideURL = "REPLACEWITHYOURWEBSITEURL";
+  const siteSettings = {
+    "www.amazon.de": {
+      buttonPosition: () => document.getElementById("wishlistButtonStack"),
+      downloadImage: true,
+      giftImage: () => document.querySelector("#landingImage").src,
+      giftPrice: () =>
+        document.querySelector(".a-offscreen").textContent.split("€")[1],
+      giftName: () => document.querySelector("#productTitle"),
+    },
+    "www.amazon.com": {
+      buttonPosition: () => document.getElementById("wishlistButtonStack"),
+      downloadImage: true,
+      giftImage: () => document.querySelector("#landingImage").src,
+      giftPrice: () =>
+        document.querySelector(".a-offscreen").textContent.split("€")[1],
+      giftName: () => document.querySelector("#productTitle"),
+    },
+    "www.idealo.de": {
+      buttonPosition: () =>
+        document.getElementsByClassName("oopStage-wrapper columns")[0],
+      downloadImage: false,
+      giftImage: () => false,
+      giftPrice: () =>
+        document
+          .getElementsByClassName("oopStage-variantThumbnailsFromPrice")[0]
+          .textContent.split("€")[0],
+      giftName: () => document.getElementById("oopStage-title").children[0],
+    },
+  };
+  setTimeout(async () => {
+    if (document.URL === giftSideURL) {
+      GM_setValue("geschenkeCookies", document.cookie);
       return;
-  }
-  const wishListButtonStack = document.getElementById("wishlistButtonStack")
-  if(!wishListButtonStack) {
-      console.log("no wishlist-box found!")
-      return
-  }
+    }
 
-  const style = document.createElement('style');
-  document.head.appendChild(style)
-  style.innerHTML=`
+    const style = document.createElement("style");
+    document.head.appendChild(style);
+    style.innerHTML = `
           .myForm {
       z-index: 3000;
       top: 12.5%;
@@ -121,30 +145,42 @@
       background: pink;
       border-radius: 4px;
     }
-    `
+    `;
 
-  const openDialogButton = document.createElement("button")
-  openDialogButton.innerHTML="Auf der Geschenkseite erneut anmelden!"
-  openDialogButton.onclick = () => {window.open(giftSideURL,'_blank');
-                                   window.location.reload();}
-  openDialogButton.classList.add("addButton")
-  openDialogButton.type="button"
-  wishListButtonStack.append(openDialogButton)
-  if(!GM_listValues().includes("geschenkeCookies")){
-      openDialogButton.innerHTML="Auf der Geschenkseite anmelden!"
+    const openDialogButton = document.createElement("button");
+    openDialogButton.innerHTML = "Auf der Geschenkseite erneut anmelden!";
+    openDialogButton.onclick = () => {
+      window.open(giftSideURL, "_blank");
+      window.location.reload();
+    };
+    openDialogButton.classList.add("addButton");
+    openDialogButton.type = "button";
+
+    const siteHostname = window.location.hostname;
+    const buttonPosition = siteSettings[siteHostname].buttonPosition();
+    if (!buttonPosition) {
+      console.log("no position for the button found!");
       return;
-  }
+    }
+    buttonPosition.append(openDialogButton);
+    if (!GM_listValues().includes("geschenkeCookies")) {
+      openDialogButton.innerHTML = "Auf der Geschenkseite anmelden!";
+      return;
+    }
 
-  let token = ""
-  let splitCookie = GM_getValue("geschenkeCookies").split(';')
-  for(let i = 0; i < splitCookie.length; i++){
-      if(splitCookie[i].startsWith(" auth:token") || splitCookie[i].startsWith("auth:token")) {
-      token = splitCookie[i].split('=')[1]
+    let token = "";
+    let splitCookie = GM_getValue("geschenkeCookies").split(";");
+    for (let i = 0; i < splitCookie.length; i++) {
+      if (
+        splitCookie[i].startsWith(" auth:token") ||
+        splitCookie[i].startsWith("auth:token")
+      ) {
+        token = splitCookie[i].split("=")[1];
       }
-  }
+    }
 
-  const dialog = document.createElement("div")
-  dialog.innerHTML=`
+    const dialog = document.createElement("div");
+    dialog.innerHTML = `
           <form class="myForm">
     <label class="myLabel">Name des Geschenks</label>
     <input class="myInput" maxlength="60" id="giftName" />
@@ -176,90 +212,92 @@
     </button>
     <button type="button" class="myButton" id="closeDialog">schließen</button>
   </form>
-          `
-          dialog.style.visibility='hidden'
-  document.body.appendChild(dialog)
+          `;
+    dialog.style.visibility = "hidden";
+    document.body.appendChild(dialog);
 
-
-
-  const select = document.getElementById("giftLists");
-  openDialogButton.innerHTML="Als Geschenk zur Geschenkeliste hinzufügen"
-  openDialogButton.onclick = () => {
-      dialog.style.visibility='visible'
-  }
-  await GM_xmlhttpRequest({
+    const select = document.getElementById("giftLists");
+    openDialogButton.innerHTML = "Als Geschenk zur Geschenkeliste hinzufügen";
+    openDialogButton.onclick = () => {
+      dialog.style.visibility = "visible";
+    };
+    await GM_xmlhttpRequest({
       method: "GET",
-      url: giftSideURL+"api/giftgroups/",
+      url: giftSideURL + "api/giftgroups/",
       headers: {
-          "Content-Type": "application/json",
-          "Authorization": "Bearer " + token,
+        "Content-Type": "application/json",
+        Authorization: "Bearer " + token,
       },
-      onload: await function(response) {
-          console.log(response)
-          if(response.status !==200) {
-              openDialogButton.innerHTML="Auf der Geschenkseite erneut anmelden!"
-              openDialogButton.onclick = () => {window.open(giftSideURL,'_blank');
-              window.location.reload();}
-              return;
-          }
-          const example_array = JSON.parse(response.response)
-          for(const index in example_array) {
-              select.options[select.options.length] = new Option(example_array[index].name, example_array[index].id);
-          }
-      }
-  });
-  const image = document.querySelector("#landingImage").src
-  const imageBlob = await fetch(image)
-  .then(response => response.blob())
-  .then(blob => blob)
-  const title = document.querySelector("#productTitle").textContent.trim().substring(0,60)
-  let price = Number(document.querySelector(".a-offscreen").textContent.split("€")[1])
-  if(!price || isNaN(price)) price = 0
-  const link = document.URL
+      onload: await function (response) {
+        if (response.status !== 200) {
+          openDialogButton.innerHTML = "Auf der Geschenkseite erneut anmelden!";
+          openDialogButton.onclick = () => {
+            window.open(giftSideURL, "_blank");
+            window.location.reload();
+          };
+          return;
+        }
+        const example_array = JSON.parse(response.response);
+        for (const index in example_array) {
+          select.options[select.options.length] = new Option(
+            example_array[index].name,
+            example_array[index].id
+          );
+        }
+      },
+    });
 
+    const image = siteSettings[siteHostname].giftImage();
+    let imageBlob;
+    if (siteSettings[siteHostname].downloadImage) {
+      imageBlob = await fetch(image)
+        .then((response) => response.blob())
+        .then((blob) => blob);
+    }
+    const title = siteSettings[siteHostname]
+      .giftName()
+      .textContent.trim()
+      .substring(0, 60);
+    let price = Number(
+      siteSettings[siteHostname].giftPrice().trim().replace(",", ".")
+    );
+    if (!price || isNaN(price)) price = 0;
+    const link = document.URL;
 
+    const titleInput = document.getElementById("giftName");
+    titleInput.value = title;
 
+    const descriptionInput = document.getElementById("giftDescription");
 
+    const priceInput = document.getElementById("giftPrice");
+    priceInput.value = price;
 
-  const titleInput = document.getElementById("giftName")
-  titleInput.value=title
+    const strengthInput = document.getElementById("giftStrength");
 
-  const descriptionInput = document.getElementById("giftDescription")
-
-  const priceInput = document.getElementById("giftPrice")
-  priceInput.value=price
-
-  const strengthInput = document.getElementById("giftStrength")
-
-  const button = document.getElementById("sendGift")
-  button.innerHTML="Als Geschenk hinzufügen"
-  button.style.margin="10px"
-  button.onclick = async () => {
-      if (isNaN(Number(priceInput.value))) return
+    const button = document.getElementById("sendGift");
+    button.innerHTML = "Als Geschenk hinzufügen";
+    button.style.margin = "10px";
+    button.onclick = async () => {
+      if (isNaN(Number(priceInput.value))) return;
       const formData = new FormData();
-      formData.append("name",titleInput.value)
-      formData.append("description",descriptionInput.value)
-      formData.append("price",Number(priceInput.value))
-      formData.append("giftStrength",strengthInput.value)
-      formData.append("link",link)
-      formData.append("picture",imageBlob)
-      await fetch(
-          giftSideURL+`api/gifts/${select.value}`,
-          {
-              method: "POST",
-              body: formData,
-              headers: {
-                  Authorization: "Bearer " + token,
-              },
-          },
-      );
-      dialog.style.display='none'
-  }
-  const innerCloseButton = document.getElementById("closeDialog")
-  innerCloseButton.onclick = () => {
-      dialog.style.visibility='hidden'
-  }
-
-}
-
-)();
+      formData.append("name", titleInput.value);
+      formData.append("description", descriptionInput.value);
+      formData.append("price", Number(priceInput.value));
+      formData.append("giftStrength", strengthInput.value);
+      formData.append("link", link);
+      formData.append("picture", imageBlob);
+      await fetch(giftSideURL + `api/gifts/${select.value}`, {
+        method: "POST",
+        body: formData,
+        headers: {
+          Authorization: "Bearer " + token,
+        },
+      });
+      dialog.style.display = "none";
+    };
+    const innerCloseButton = document.getElementById("closeDialog");
+    innerCloseButton.onclick = () => {
+      dialog.style.visibility = "hidden";
+    };
+  }, 1000);
+})();
