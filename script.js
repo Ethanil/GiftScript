@@ -19,44 +19,81 @@
 (async function () {
   "use strict";
   const giftSideURL = "REPLACEWITHYOURWEBSITEURL";
+  const withTimeout = (fn, timeout = 5000) =>
+    new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error("Timeout")), timeout);
+      Promise.resolve(fn())
+        .then((result) => {
+          clearTimeout(timer);
+          resolve(result);
+        })
+        .catch((err) => {
+          clearTimeout(timer);
+          reject(err);
+        });
+    });
+
   const siteSettings = {
     "www.amazon.de": {
-      buttonPosition: () => document.getElementById("wishlistButtonStack"),
+      buttonPosition: () =>
+        withTimeout(() => document.getElementById("wishlistButtonStack")),
       downloadImage: true,
-      giftImage: () => document.querySelector("#landingImage").src,
+      giftImage: () =>
+        withTimeout(() => document.querySelector("#landingImage").src),
       giftPrice: () =>
-        document.querySelector(".a-offscreen").textContent.split("€")[1],
-      giftName: () => document.querySelector("#productTitle"),
+        withTimeout(
+          () => document.querySelector(".a-offscreen").textContent.split("€")[1]
+        ),
+      giftName: () =>
+        withTimeout(() => document.querySelector("#productTitle")),
     },
     "www.amazon.com": {
-      buttonPosition: () => document.getElementById("wishlistButtonStack"),
+      buttonPosition: () =>
+        withTimeout(() => document.getElementById("wishlistButtonStack")),
       downloadImage: true,
-      giftImage: () => document.querySelector("#landingImage").src,
+      giftImage: () =>
+        withTimeout(() => document.querySelector("#landingImage").src),
       giftPrice: () =>
-        document.querySelector(".a-offscreen").textContent.split("€")[1],
-      giftName: () => document.querySelector("#productTitle"),
+        withTimeout(
+          () => document.querySelector(".a-offscreen").textContent.split("€")[1]
+        ),
+      giftName: () =>
+        withTimeout(() => document.querySelector("#productTitle")),
     },
     "www.idealo.de": {
       buttonPosition: () =>
-        document.getElementsByClassName("oopStage-wrapper columns")[0],
+        withTimeout(
+          () => document.getElementsByClassName("oopStage-wrapper columns")[0]
+        ),
       downloadImage: false,
       giftImage: () => false,
       giftPrice: () =>
-        document
-          .getElementsByClassName("oopStage-variantThumbnailsFromPrice")[0]
-          .textContent.split("€")[0],
-      giftName: () => document.getElementById("oopStage-title").children[0],
+        withTimeout(() => {
+          let priceVariant = document.getElementsByClassName(
+            "oopStage-variantThumbnailsFromPrice"
+          );
+          if (priceVariant.length > 0)
+            return priceVariant[0].textContent.split("€")[0];
+          return document
+            .getElementsByClassName(
+              "oopStage-conditionButton-wrapper-text-price"
+            )[0]
+            .children[1].textContent.split("€")[0];
+        }),
+      giftName: () =>
+        withTimeout(
+          () => document.getElementById("oopStage-title").children[0]
+        ),
     },
   };
-  setTimeout(async () => {
-    if (document.URL === giftSideURL) {
-      GM_setValue("geschenkeCookies", document.cookie);
-      return;
-    }
+  if (document.URL === giftSideURL) {
+    GM_setValue("geschenkeCookies", document.cookie);
+    return;
+  }
 
-    const style = document.createElement("style");
-    document.head.appendChild(style);
-    style.innerHTML = `
+  const style = document.createElement("style");
+  document.head.appendChild(style);
+  style.innerHTML = `
           .myForm {
       z-index: 3000;
       top: 12.5%;
@@ -147,40 +184,41 @@
     }
     `;
 
-    const openDialogButton = document.createElement("button");
-    openDialogButton.innerHTML = "Auf der Geschenkseite erneut anmelden!";
-    openDialogButton.onclick = () => {
-      window.open(giftSideURL, "_blank");
-      window.location.reload();
-    };
-    openDialogButton.classList.add("addButton");
-    openDialogButton.type = "button";
+  const openDialogButton = document.createElement("button");
+  openDialogButton.innerHTML = "Auf der Geschenkseite erneut anmelden!";
+  openDialogButton.onclick = () => {
+    window.open(giftSideURL, "_blank");
+    window.location.reload();
+  };
+  openDialogButton.classList.add("addButton");
+  openDialogButton.type = "button";
 
-    const siteHostname = window.location.hostname;
-    const buttonPosition = siteSettings[siteHostname].buttonPosition();
-    if (!buttonPosition) {
-      console.log("no position for the button found!");
-      return;
-    }
-    buttonPosition.append(openDialogButton);
-    if (!GM_listValues().includes("geschenkeCookies")) {
-      openDialogButton.innerHTML = "Auf der Geschenkseite anmelden!";
-      return;
-    }
+  const siteHostname = window.location.hostname;
+  siteSettings[siteHostname]
+    .buttonPosition()
+    .then((buttonPosition) => {
+      buttonPosition.append(openDialogButton);
+    })
+    .catch((error) => console.error("Error finding button position:", error));
 
-    let token = "";
-    let splitCookie = GM_getValue("geschenkeCookies").split(";");
-    for (let i = 0; i < splitCookie.length; i++) {
-      if (
-        splitCookie[i].startsWith(" auth:token") ||
-        splitCookie[i].startsWith("auth:token")
-      ) {
-        token = splitCookie[i].split("=")[1];
-      }
-    }
+  if (!GM_listValues().includes("geschenkeCookies")) {
+    openDialogButton.innerHTML = "Auf der Geschenkseite anmelden!";
+    return;
+  }
 
-    const dialog = document.createElement("div");
-    dialog.innerHTML = `
+  let token = "";
+  let splitCookie = GM_getValue("geschenkeCookies").split(";");
+  for (let i = 0; i < splitCookie.length; i++) {
+    if (
+      splitCookie[i].startsWith(" auth:token") ||
+      splitCookie[i].startsWith("auth:token")
+    ) {
+      token = splitCookie[i].split("=")[1];
+    }
+  }
+
+  const dialog = document.createElement("div");
+  dialog.innerHTML = `
           <form class="myForm">
     <label class="myLabel">Name des Geschenks</label>
     <input class="myInput" maxlength="60" id="giftName" />
@@ -213,91 +251,91 @@
     <button type="button" class="myButton" id="closeDialog">schließen</button>
   </form>
           `;
-    dialog.style.visibility = "hidden";
-    document.body.appendChild(dialog);
+  dialog.style.visibility = "hidden";
+  document.body.appendChild(dialog);
 
-    const select = document.getElementById("giftLists");
-    openDialogButton.innerHTML = "Als Geschenk zur Geschenkeliste hinzufügen";
-    openDialogButton.onclick = () => {
-      dialog.style.visibility = "visible";
-    };
-    await GM_xmlhttpRequest({
-      method: "GET",
-      url: giftSideURL + "api/giftgroups/",
+  const select = document.getElementById("giftLists");
+  openDialogButton.innerHTML = "Als Geschenk zur Geschenkeliste hinzufügen";
+  openDialogButton.onclick = () => {
+    dialog.style.visibility = "visible";
+  };
+  await GM_xmlhttpRequest({
+    method: "GET",
+    url: giftSideURL + "api/giftgroups/",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: "Bearer " + token,
+    },
+    onload: await function (response) {
+      if (response.status !== 200) {
+        openDialogButton.innerHTML = "Auf der Geschenkseite erneut anmelden!";
+        openDialogButton.onclick = () => {
+          window.open(giftSideURL, "_blank");
+          window.location.reload();
+        };
+        return;
+      }
+      const example_array = JSON.parse(response.response);
+      for (const index in example_array) {
+        select.options[select.options.length] = new Option(
+          example_array[index].name,
+          example_array[index].id
+        );
+      }
+    },
+  });
+  let imageBlob;
+  if (siteSettings[siteHostname].downloadImage) {
+    siteSettings[siteHostname]
+      .giftImage()
+      .then(async (image) => {
+        imageBlob = await fetch(image)
+          .then((response) => response.blob())
+          .then((blob) => blob);
+      })
+      .catch((error) => console.error("Error finding image:", error));
+  }
+  const titleInput = document.getElementById("giftName");
+  siteSettings[siteHostname].giftName().then((title) => {
+    title = title.textContent.trim().substring(0, 60);
+    titleInput.value = title;
+  });
+
+  const priceInput = document.getElementById("giftPrice");
+  siteSettings[siteHostname].giftPrice().then((price) => {
+    price = Number(price.trim().replace(",", "."));
+    if (!price || isNaN(price)) price = 0;
+    priceInput.value = price;
+  });
+
+  const link = document.URL;
+
+  const descriptionInput = document.getElementById("giftDescription");
+  const strengthInput = document.getElementById("giftStrength");
+
+  const button = document.getElementById("sendGift");
+  button.innerHTML = "Als Geschenk hinzufügen";
+  button.style.margin = "10px";
+  button.onclick = async () => {
+    if (isNaN(Number(priceInput.value))) return;
+    const formData = new FormData();
+    formData.append("name", titleInput.value);
+    formData.append("description", descriptionInput.value);
+    formData.append("price", Number(priceInput.value));
+    formData.append("giftStrength", strengthInput.value);
+    formData.append("link", link);
+    formData.append("picture", imageBlob);
+    await fetch(giftSideURL + `api/gifts/${select.value}`, {
+      method: "POST",
+      body: formData,
       headers: {
-        "Content-Type": "application/json",
         Authorization: "Bearer " + token,
       },
-      onload: await function (response) {
-        if (response.status !== 200) {
-          openDialogButton.innerHTML = "Auf der Geschenkseite erneut anmelden!";
-          openDialogButton.onclick = () => {
-            window.open(giftSideURL, "_blank");
-            window.location.reload();
-          };
-          return;
-        }
-        const example_array = JSON.parse(response.response);
-        for (const index in example_array) {
-          select.options[select.options.length] = new Option(
-            example_array[index].name,
-            example_array[index].id
-          );
-        }
-      },
     });
-
-    const image = siteSettings[siteHostname].giftImage();
-    let imageBlob;
-    if (siteSettings[siteHostname].downloadImage) {
-      imageBlob = await fetch(image)
-        .then((response) => response.blob())
-        .then((blob) => blob);
-    }
-    const title = siteSettings[siteHostname]
-      .giftName()
-      .textContent.trim()
-      .substring(0, 60);
-    let price = Number(
-      siteSettings[siteHostname].giftPrice().trim().replace(",", ".")
-    );
-    if (!price || isNaN(price)) price = 0;
-    const link = document.URL;
-
-    const titleInput = document.getElementById("giftName");
-    titleInput.value = title;
-
-    const descriptionInput = document.getElementById("giftDescription");
-
-    const priceInput = document.getElementById("giftPrice");
-    priceInput.value = price;
-
-    const strengthInput = document.getElementById("giftStrength");
-
-    const button = document.getElementById("sendGift");
-    button.innerHTML = "Als Geschenk hinzufügen";
-    button.style.margin = "10px";
-    button.onclick = async () => {
-      if (isNaN(Number(priceInput.value))) return;
-      const formData = new FormData();
-      formData.append("name", titleInput.value);
-      formData.append("description", descriptionInput.value);
-      formData.append("price", Number(priceInput.value));
-      formData.append("giftStrength", strengthInput.value);
-      formData.append("link", link);
-      formData.append("picture", imageBlob);
-      await fetch(giftSideURL + `api/gifts/${select.value}`, {
-        method: "POST",
-        body: formData,
-        headers: {
-          Authorization: "Bearer " + token,
-        },
-      });
-      dialog.style.display = "none";
-    };
-    const innerCloseButton = document.getElementById("closeDialog");
-    innerCloseButton.onclick = () => {
-      dialog.style.visibility = "hidden";
-    };
-  }, 1000);
+    dialog.style.display = "none";
+  };
+  const innerCloseButton = document.getElementById("closeDialog");
+  innerCloseButton.onclick = () => {
+    dialog.style.visibility = "hidden";
+  };
 })();
