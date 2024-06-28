@@ -12,13 +12,24 @@
 // @grant       GM_cookie
 // @grant       GM_setValue
 // @grant       GM_getValue
+// @grant       GM_deleteValue
 // @grant       GM_listValues
 // @grant       GM_xmlhttpRequest
 // ==/UserScript==
 
 (async function () {
   "use strict";
-  const giftSideURL = "REPLACEWITHYOURWEBSITEURL";
+  let giftSideURL = "REPLACEWITHYOURWEBSITEURL";
+  if (!giftSideURL.endsWith("/") && giftSideURL != "REPLACEWITHYOURWEBSITEURL") {
+    giftSideURL += "/";
+  }
+  if (giftSideURL == "REPLACEWITHYOURWEBSITEURL") {
+    var h1 = document.createElement("H1");
+    h1.innerHTML =
+      "URL nicht korrekt eingegeben, bitte giftSideURL mit der richtigen URL ersetzen!";
+    document.body.prepend(h1);
+    return;
+  }
   const withTimeout = (fn, timeout = 5000) =>
     new Promise((resolve, reject) => {
       const timer = setTimeout(() => reject(new Error("Timeout")), timeout);
@@ -268,6 +279,7 @@
     },
     onload: await function (response) {
       if (response.status !== 200) {
+        GM_deleteValue("geschenkeCookies");
         openDialogButton.innerHTML = "Auf der Geschenkseite erneut anmelden!";
         openDialogButton.onclick = () => {
           window.open(giftSideURL, "_blank");
