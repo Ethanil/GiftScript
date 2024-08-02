@@ -9,6 +9,7 @@
 // @match *://*.amazon.de/*
 // @match *://*.amazon.com/*
 // @match *://*.idealo.de/*
+// @match *://*.brettspiel-angebote.de/*
 // @grant       GM_cookie
 // @grant       GM_setValue
 // @grant       GM_getValue
@@ -20,7 +21,10 @@
 (async function () {
   "use strict";
   let giftSideURL = "REPLACEWITHYOURWEBSITEURL";
-  if (!giftSideURL.endsWith("/") && giftSideURL != "REPLACEWITHYOURWEBSITEURL") {
+  if (
+    !giftSideURL.endsWith("/") &&
+    giftSideURL != "REPLACEWITHYOURWEBSITEURL"
+  ) {
     giftSideURL += "/";
   }
   if (giftSideURL == "REPLACEWITHYOURWEBSITEURL") {
@@ -32,44 +36,78 @@
   }
   const withTimeout = (fn, timeout = 5000) =>
     new Promise((resolve, reject) => {
-      const timer = setTimeout(() => reject(new Error("Timeout")), timeout);
-      Promise.resolve(fn())
-        .then((result) => {
-          clearTimeout(timer);
-          resolve(result);
-        })
-        .catch((err) => {
-          clearTimeout(timer);
-          reject(err);
-        });
-    });
+      const endTime = Date.now() + timeout;
 
+      const attempt = () => {
+        Promise.resolve(fn())
+          .then((result) => {
+            if (result != null && result != undefined) {
+              resolve(result);
+            } else if (Date.now() < endTime) {
+              attempt(); // Retry if result is nullish and time remains
+            } else {
+              reject(new Error("Timeout"));
+            }
+          })
+          .catch((err) => {
+            if (Date.now() < endTime) {
+              attempt(); // Retry on error if time remains
+            } else {
+              reject(err);
+            }
+          });
+      };
+
+      attempt();
+    });
   const siteSettings = {
     "www.amazon.de": {
       buttonPosition: () =>
         withTimeout(() => document.getElementById("wishlistButtonStack")),
       downloadImage: true,
       giftImage: () =>
-        withTimeout(() => document.querySelector("#landingImage").src),
+        withTimeout(() => document.querySelector("#landingImage")?.src ?? document.querySelector("#main-image")?.src),
       giftPrice: () =>
-        withTimeout(
-          () => document.querySelector(".a-offscreen").textContent.split("€")[1]
-        ),
+        withTimeout(() => {
+          let wholePrice = document
+            .querySelector(".a-price-whole")
+            .textContent.trim();
+          let fractionPrice = document
+            .querySelector(".a-price-fraction")
+            .textContent.trim();
+          if (wholePrice && wholePrice != "" && fractionPrice && fractionPrice != "") return wholePrice+fractionPrice;
+          let text = document.querySelector(".a-offscreen").textContent.trim();
+          if (text != "") {
+            return text.split("€")[1];
+          }
+          return "0.0";
+        }),
       giftName: () =>
-        withTimeout(() => document.querySelector("#productTitle")),
+        withTimeout(() => document.querySelector("#productTitle") ?? document.querySelector("#title")),
     },
     "www.amazon.com": {
-      buttonPosition: () =>
+buttonPosition: () =>
         withTimeout(() => document.getElementById("wishlistButtonStack")),
       downloadImage: true,
       giftImage: () =>
-        withTimeout(() => document.querySelector("#landingImage").src),
+        withTimeout(() => document.querySelector("#landingImage")?.src ?? document.querySelector("#main-image")?.src),
       giftPrice: () =>
-        withTimeout(
-          () => document.querySelector(".a-offscreen").textContent.split("€")[1]
-        ),
+        withTimeout(() => {
+          let wholePrice = document
+            .querySelector(".a-price-whole")
+            .textContent.trim();
+          let fractionPrice = document
+            .querySelector(".a-price-fraction")
+            .textContent.trim();
+          if (wholePrice && wholePrice != "" && fractionPrice && fractionPrice != "") return wholePrice+fractionPrice;
+          let text = document.querySelector(".a-offscreen").textContent.trim();
+          if (text != "") {
+            return text.split("€")[1];
+          }
+          return "0.0";
+        }),
       giftName: () =>
-        withTimeout(() => document.querySelector("#productTitle")),
+        withTimeout(() => document.querySelector("#productTitle") ?? document.querySelector("#title")),
     },
     "www.idealo.de": {
       buttonPosition: () =>
@@ -96,12 +134,36 @@
           () => document.getElementById("oopStage-title").children[0]
         ),
     },
+    "www.brettspiel-angebote.de": {
+      buttonPosition: () =>
+        withTimeout(
+          () =>
+            document.querySelector(".cover-image.main:not(.mb-3)").parentElement
+              .parentElement
+        ),
+      downloadImage: true,
+      giftImage: () =>
+        withTimeout(
+          () =>
+            document.querySelector(".cover-image.main:not(.mb-3)").children[0]
+              .src
+        ),
+      giftPrice: () =>
+        withTimeout(
+          () =>
+            document
+              .getElementById("current-bestprices")
+              .querySelector(".price-single.px-2")
+              .textContent.split("€")[0]
+        ),
+      giftName: () =>
+        withTimeout(() => document.querySelector(".breadcrumb-item.active")),
+    },
   };
   if (document.URL === giftSideURL) {
     GM_setValue("geschenkeCookies", document.cookie);
     return;
   }
-
   const style = document.createElement("style");
   document.head.appendChild(style);
   style.innerHTML = `
@@ -312,9 +374,9 @@
     title = title.textContent.trim().substring(0, 60);
     titleInput.value = title;
   });
-
   const priceInput = document.getElementById("giftPrice");
   siteSettings[siteHostname].giftPrice().then((price) => {
+    if (!price) price = "0";
     price = Number(price.trim().replace(",", "."));
     if (!price || isNaN(price)) price = 0;
     priceInput.value = price;
