@@ -115,7 +115,7 @@ buttonPosition: () =>
           () => document.getElementsByClassName("oopStage-wrapper columns")[0]
         ),
       downloadImage: false,
-      giftImage: () => false,
+      giftImage: () => withTimeout(()=> document.querySelector("#slide-0").querySelector("img").src),
       giftPrice: () =>
         withTimeout(() => {
           let priceVariant = document.getElementsByClassName(
@@ -368,6 +368,8 @@ buttonPosition: () =>
           .then((blob) => blob);
       })
       .catch((error) => console.error("Error finding image:", error));
+  } else{
+    siteSettings[siteHostname].giftImage().then((url) => {imageBlob = url});
   }
   const titleInput = document.getElementById("giftName");
   siteSettings[siteHostname].giftName().then((title) => {
