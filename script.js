@@ -5,7 +5,7 @@
 // @description  try to take over the world!
 // @author       You
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=tampermonkey.net
-// @match REPLACEWITHYOURWEBSITEURL
+// @match https://geschenke.gielisch.name/
 // @match *://*.amazon.de/*
 // @match *://*.amazon.com/*
 // @match *://*.idealo.de/*
@@ -20,7 +20,7 @@
 
 (async function () {
   "use strict";
-  let giftSideURL = "REPLACEWITHYOURWEBSITEURL";
+  let giftSideURL = "https://geschenke.gielisch.name/";
   if (
     !giftSideURL.endsWith("/") &&
     giftSideURL != "REPLACEWITHYOURWEBSITEURL"
@@ -153,7 +153,7 @@ buttonPosition: () =>
           () =>
             document
               .getElementById("current-bestprices")
-              .querySelector(".price-single.px-2")
+              .querySelector(".price-single")
               .textContent.split("€")[0]
         ),
       giftName: () =>
