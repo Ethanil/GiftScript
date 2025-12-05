@@ -10,6 +10,7 @@
 // @match *://*.amazon.com/*
 // @match *://*.idealo.de/*
 // @match *://*.brettspiel-angebote.de/*
+// @match *://*.isbn.de/*
 // @grant       GM_cookie
 // @grant       GM_setValue
 // @grant       GM_getValue
@@ -44,7 +45,7 @@
             if (result != null && result != undefined) {
               resolve(result);
             } else if (Date.now() < endTime) {
-              attempt(); // Retry if result is nullish and time remains
+              setTimeout(attempt, 100);
             } else {
               reject(new Error("Timeout"));
             }
@@ -158,6 +159,29 @@ buttonPosition: () =>
         ),
       giftName: () =>
         withTimeout(() => document.querySelector(".breadcrumb-item.active")),
+    },
+    "www.isbn.de": {
+      buttonPosition: () =>
+        withTimeout(
+          () =>
+            document.querySelector(".alink.butt")?.nextSibling
+        ),
+      downloadImage: false,
+      giftImage: () =>
+        withTimeout(
+          () =>
+            document.getElementById("ISBNcover")?.src
+        ),
+      giftPrice: () =>
+        withTimeout(
+          () =>
+            document.querySelector('span[title="gebundener Ladenpreis"]')?.parentElement
+          .nextSibling
+          .textContent
+          .split("€")[0]
+        ),
+      giftName: () =>
+        withTimeout(() => document.querySelector(".isbnhead")?.children[0]),
     },
   };
   if (document.URL === giftSideURL) {
@@ -372,17 +396,29 @@ buttonPosition: () =>
     siteSettings[siteHostname].giftImage().then((url) => {imageBlob = url});
   }
   const titleInput = document.getElementById("giftName");
-  siteSettings[siteHostname].giftName().then((title) => {
+  siteSettings[siteHostname]
+  .giftName()
+  .then((title) => {
     title = title.textContent.trim().substring(0, 60);
     titleInput.value = title;
-  });
+  })
+  .catch(() => {
+    console.log("Could not find a title automatically.");
+    titleInput.value = "";
+        });
   const priceInput = document.getElementById("giftPrice");
-  siteSettings[siteHostname].giftPrice().then((price) => {
+  siteSettings[siteHostname]
+  .giftPrice()
+  .then((price) => {
     if (!price) price = "0";
     price = Number(price.trim().replace(",", "."));
     if (!price || isNaN(price)) price = 0;
     priceInput.value = price;
-  });
+  })
+  .catch(() => {
+    console.log("Could not find a price automatically.");
+    priceInput.value = "0.0";
+        });
 
   const link = document.URL;
 
